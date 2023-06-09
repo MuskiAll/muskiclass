@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sala de Aula</title>
+    <script>
+        function gerarCombinacoes() {
+            var salaIndex = parseInt(document.getElementById('salaIndex').value);
+            var salas = JSON.parse(localStorage.getItem('salas')) || [];
+            var sala = salas[salaIndex];
+
+            var colunas = sala.colunas;
+            var carteiras = sala.carteirasPorColuna;
+
+            var posicoes = [];
+            for (var i = 1; i <= colunas; i++) {
+                for (var j = 1; j <= carteiras; j++) {
+                    posicoes.push([i, j]);
+                }
+            }
+
+            var alunos = sala.alunos;
+
+            var combinacoes = [];
+            gerarComb(alunos, posicoes, [], combinacoes);
+
+            mostrarMapeamento(combinacoes);
+        }
+
+        function gerarComb(alunos, posicoes, combinacaoAtual, combinacoes) {
+            if (combinacaoAtual.length === alunos.length) {
+                combinacoes.push(combinacaoAtual.slice());
+            } else {
+                for (var i = 0; i < posicoes.length; i++) {
+                    var coordenadas = posicoes[i];
+                    if (validarComb(alunos[combinacaoAtual.length], coordenadas, combinacaoAtual)) {
+                        combinacaoAtual.push(coordenadas);
+                        gerarComb(alunos, posicoes, combinacaoAtual, combinacoes);
+                        combinacaoAtual.pop();
+                    }
+                }
+            }
+        }
+
+        function validarComb(aluno, coordenadas, combinacaoAtual) {
+            var coluna = coordenadas[0];
+            var fileira = coordenadas[1];
+
+            if (aluno.proximidadeFrente && fileira !== carteiras) {
+                return false;
+            }
+            if (!aluno.proximidadeFrente && fileira === carteiras) {
+                return false;
+            }
+            if (aluno.proximidadeAr && coluna !== colunas) {
+                return false;
+            }
+            if (!aluno.proximidadeAr && coluna === colunas) {
+                return false;
+            }
+            if (aluno.transtorno === "TDAH" && fileira % 2 === 0) {
+                return false;
+            }
+            if (aluno.transtorno === "TEA" && fileira % 2 !== 0) {
+                return false;
+            }
+            for (var i = 0; i < combinacaoAtual.length; i++) {
+                var coords = combinacaoAtual[i];
+                if (coords[0] === coluna && coords[1] === fileira) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function mostrarMapeamento(combinacoes) {
+            var mapeamentosHtml = '';
+
+            for (var i = 0; i < combinacoes.length; i++) {
+                var combinacao = combinacoes[i];
+                mapeamentosHtml += '<h3>Mapeamento ' + (i + 1) + ':</h3>';
+                mapeamentosHtml += '<table>';
+                for (var fileira = carteiras; fileira >= 1; fileira--) {
+                    mapeamentosHtml += '<tr>';
+                    for (var coluna = colunas; coluna >= 1; coluna--) {
+                        var alunoEncontrado = false;
+                        for (var j = 0; j < combinacao.length; j++) {
+                            var coords = combinacao[j];
+                            if (coords[0] === coluna && coords[1] === fileira) {
+                                mapeamentosHtml += '<td>Aluno ' + (j + 1) + ': ' + coords[1] + '(' + coords[0] + ',' + coords[1] + ')</td>';
+                                alunoEncontrado = true;
+                                break;
+                            }
+                        }
+                        if (!alunoEncontrado) {
+                            mapeamentosHtml += '<td>[Vazio]</td>';
+                        }
+                    }
+                    mapeamentosHtml += '</tr>';
+                }
+                mapeamentosHtml += '</table>';
+            }
+
+            document.getElementById('mapeamentos').innerHTML = mapeamentosHtml;
+        }
+
+        function adicionarSala() {
+            var nomeSala = document.getElementById('nomeSala').value;
+            var colunas = parseInt(document.getElementById('colunas').value);
+            var carteiras = parseInt(document.getElementById('carteiras').value);
+
+            var sala = {
+                nome: nomeSala,
+                colunas: colunas,
+                carteirasPorColuna: carteiras,
+                alunos: []
+            };
+
+            var salas = JSON.parse(localStorage.getItem('salas')) || [];
+            salas.push(sala);
+            localStorage.setItem('salas', JSON.stringify(salas));
+
+            mostrarSalas();
+        }
+
+        function mostrarSalas() {
+            var salas = JSON.parse(localStorage.getItem('salas')) || [];
+            var salasListHtml = '';
+
+            for (var i = 0; i < salas.length; i++) {
+                salasListHtml += '<li><a href="#" onclick="mostrarAlunos(' + i + ')">' + salas[i].nome + '</a></li>';
+            }
+
+            document.getElementById('salasList').innerHTML = salasListHtml;
+        }
+
+        function mostrarAlunos(salaIndex) {
+            var salas = JSON.parse(localStorage.getItem('salas')) || [];
+            var sala = salas[salaIndex];
+
+            document.getElementById('salaName').innerHTML = sala.nome;
+            document.getElementById('salaIndex').value = salaIndex;
+
+            var alunosListHtml = '';
+            for (var i = 0; i < sala.alunos.length; i++) {
+                alunosListHtml += '<li>' + sala.alunos[i].nome + '</li>';
+            }
+            document.getElementById('alunosList').innerHTML = alunosListHtml;
+
+            document.getElementById('salaForm').style.display = 'none';
+            document.getElementById('alunoForm').style.display = 'block';
+        }
+
+        function adicionarAluno(salaIndex) {
+            var nomeAluno = document.getElementById('nomeAluno').value;
+            var proximidadeFrente = document.getElementById('proximidadeFrente').checked;
+            var proximidadeAr = document.getElementById('proximidadeAr').checked;
+            var nivelConversacao = document.getElementById('nivelConversacao').value;
+            var transtornos = document.getElementsByName('transtorno');
+            var transtorno = null;
+            for (var i = 0; i < transtornos.length; i++) {
+                if (transtornos[i].checked) {
+                    transtorno = transtornos[i].value;
+                    break;
+                }
+            }
+
+            var salas = JSON.parse(localStorage.getItem('salas')) || [];
+            var sala = salas[salaIndex];
+
+            var aluno = {
+                nome: nomeAluno,
+                proximidadeFrente: proximidadeFrente,
+                proximidadeAr: proximidadeAr,
+                nivelConversacao: nivelConversacao,
+                transtorno: transtorno
+            };
+
+            sala.alunos.push(aluno);
+            localStorage.setItem('salas', JSON.stringify(salas));
+
+            mostrarAlunos(salaIndex);
+        }
+
+        function voltarParaSalas() {
+            document.getElementById('alunoForm').style.display = 'none';
+            document.getElementById('salaForm').style.display = 'block';
+        }
+
+        window.onload = function () {
+            mostrarSalas();
+        };
+    </script>
+    <style>
+        table {
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Gerador de Sala de Aula</h2>
+
+    <div id="salaForm">
+        <h3>Adicionar Sala de Aula</h3>
+        <label for="nomeSala">Nome da Sala:</label>
+        <input type="text" id="nomeSala"><br>
+        <label for="colunas">Número de Colunas:</label>
+        <input type="number" id="colunas"><br>
+        <label for="carteiras">Número de Carteiras por Coluna:</label>
+        <input type="number" id="carteiras"><br>
+        <button onclick="adicionarSala()">Adicionar Sala</button>
+
+        <h3>Salas de Aula</h3>
+        <ul id="salasList"></ul>
+    </div>
+
+    <div id="alunoForm" style="display: none;">
+        <h3 id="salaName"></h3>
+        <input type="hidden" id="salaIndex">
+        <h4>Alunos:</h4>
+        <ul id="alunosList"></ul>
+
+        <h4>Adicionar Aluno</h4>
+        <label for="nomeAluno">Nome do Aluno:</label>
+        <input type="text" id="nomeAluno"><br>
+        <label for="proximidadeFrente">Proximidade da Frente:</label>
+        <input type="checkbox" id="proximidadeFrente"><br>
+        <label for="proximidadeAr">Proximidade da Área de Recreação:</label>
+        <input type="checkbox" id="proximidadeAr"><br>
+        <label for="nivelConversacao">Nível de Conversação:</label>
+        <select id="nivelConversacao">
+            <option value="quieto">Quieto</option>
+            <option value="médio">Médio</option>
+            <option value="conversa mais">Conversa mais</option>
+        </select><br>
+        <label>Transtorno:</label><br>
+        <input type="radio" id="tdah" name="transtorno" value="TDAH">
+        <label for="tdah">TDAH</label><br>
+        <input type="radio" id="tea" name="transtorno" value="TEA">
+        <label for="tea">TEA</label><br>
+        <button onclick="adicionarAluno(salaIndex)">Adicionar Aluno</button>
+        <button onclick="voltarParaSalas()">Voltar para Salas</button>
+    </div>
+
+    <h3>Gerar Combinações</h3>
+    <button onclick="gerarCombinacoes()">Gerar</button>
+    <div id="mapeamentos"></div>
+</body>
+</html>
